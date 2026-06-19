@@ -379,18 +379,47 @@ func (sm *ServiceManager) compileAndWriteScript(scriptContent string, filename s
 	return scriptPath, nil
 }
 
-func runPluginCmd(svcMode string, owner string, binary string, args []string, logPath string, waitForCompletion bool) (int, error) {
+func runPluginCmd(svcMode string, owner string, binary string, args []string, logPath string, waitForCompletion bool, ns string) (int, error) {
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to create log file: %w", err)
 	}
 
 	var cmd *exec.Cmd
-	if svcMode == "exec" && owner != "root" {
-		fullArgs := append([]string{"-u", owner, "-E", binary}, args...)
-		cmd = exec.Command("sudo", fullArgs...)
+	if strings.HasSuffix(binary, ".sh") {
+		if ns != "" {
+			if svcMode == "exec" && owner != "root" {
+				fullArgs := append([]string{"netns", "exec", ns, "setpriv", "--reuid=" + owner, "--regid=" + owner, "--init-groups", "/bin/sh", binary}, args...)
+				cmd = exec.Command("ip", fullArgs...)
+			} else {
+				fullArgs := append([]string{"netns", "exec", ns, "/bin/sh", binary}, args...)
+				cmd = exec.Command("ip", fullArgs...)
+			}
+		} else {
+			if svcMode == "exec" && owner != "root" {
+				fullArgs := append([]string{"-u", owner, "-E", "/bin/sh", binary}, args...)
+				cmd = exec.Command("sudo", fullArgs...)
+			} else {
+				cmd = exec.Command("/bin/sh", append([]string{binary}, args...)...)
+			}
+		}
 	} else {
-		cmd = exec.Command(binary, args...)
+		if ns != "" {
+			if svcMode == "exec" && owner != "root" {
+				fullArgs := append([]string{"netns", "exec", ns, "setpriv", "--reuid=" + owner, "--regid=" + owner, "--init-groups", binary}, args...)
+				cmd = exec.Command("ip", fullArgs...)
+			} else {
+				fullArgs := append([]string{"netns", "exec", ns, binary}, args...)
+				cmd = exec.Command("ip", fullArgs...)
+			}
+		} else {
+			if svcMode == "exec" && owner != "root" {
+				fullArgs := append([]string{"-u", owner, "-E", binary}, args...)
+				cmd = exec.Command("sudo", fullArgs...)
+			} else {
+				cmd = exec.Command(binary, args...)
+			}
+		}
 	}
 
 	cmd.Stdout = logFile
@@ -458,7 +487,7 @@ func (sm *ServiceManager) startPlugin(idx int, svc config.Service, ns string) (i
 		if err != nil {
 			return 0, err
 		}
-		return runPluginCmd(svc.Mode, ctx.Owner, scriptPath, nil, logPath, false)
+		return runPluginCmd(svc.Mode, ctx.Owner, scriptPath, nil, logPath, false, ns)
 	}
 
 	compiledPath, err := compileTemplate(svc.Path, ctx)
@@ -475,7 +504,7 @@ func (sm *ServiceManager) startPlugin(idx int, svc config.Service, ns string) (i
 		compiledArgs[i] = cArg
 	}
 
-	return runPluginCmd(svc.Mode, ctx.Owner, compiledPath, compiledArgs, logPath, false)
+	return runPluginCmd(svc.Mode, ctx.Owner, compiledPath, compiledArgs, logPath, false, ns)
 }
 
 func (sm *ServiceManager) RunCleanup(idx int, svc config.Service, ns string) error {
@@ -487,7 +516,7 @@ func (sm *ServiceManager) RunCleanup(idx int, svc config.Service, ns string) err
 		if err != nil {
 			return err
 		}
-		_, err = runPluginCmd(svc.Mode, ctx.Owner, scriptPath, nil, logPath, true)
+		_, err = runPluginCmd(svc.Mode, ctx.Owner, scriptPath, nil, logPath, true, ns)
 		return err
 	}
 
@@ -506,7 +535,7 @@ func (sm *ServiceManager) RunCleanup(idx int, svc config.Service, ns string) err
 			compiledArgs[i] = cArg
 		}
 
-		_, err = runPluginCmd(svc.Mode, ctx.Owner, compiledPath, compiledArgs, logPath, true)
+		_, err = runPluginCmd(svc.Mode, ctx.Owner, compiledPath, compiledArgs, logPath, true, ns)
 		return err
 	}
 

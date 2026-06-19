@@ -56,7 +56,7 @@ func TestPluginExecution(t *testing.T) {
 	}
 
 	logPath := filepath.Join(tempDir, "test_plugin.log")
-	pid, err := runPluginCmd(svc.Mode, "root", scriptPath, nil, logPath, true)
+	pid, err := runPluginCmd(svc.Mode, "root", scriptPath, nil, logPath, true, "")
 	if err != nil {
 		t.Fatalf("failed to run plugin cmd: %v", err)
 	}

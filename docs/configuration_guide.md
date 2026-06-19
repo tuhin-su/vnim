@@ -61,9 +61,16 @@ Creates a virtual Ethernet pair to link namespaces together or to the host.
 - type: veth
   name: veth-ns             # Local interface name (max 15 chars)
   peer: veth-host           # Peer interface name (max 15 chars)
-  master: br0               # (Optional) Bridge to attach the host/peer end to
+  master: br0               # (Optional) Bridge to attach the interface to
   namespace: lab-ns         # (Optional) Namespace to move the local 'name' end into
 ```
+
+> [!NOTE]
+> **Automatic Bridge Namespace Detection**
+> If the `master` parameter is set, VNIM dynamically checks where the specified bridge exists:
+> * If the bridge exists inside the specified `namespace`, the namespace-side interface (`name`) is attached to it inside the namespace.
+> * If the bridge exists on the host (default namespace), the host-side interface (`peer`) is attached to it.
+
 
 ### VLAN
 Creates a Layer 2 Tagged VLAN sub-interface.

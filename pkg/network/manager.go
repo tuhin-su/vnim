@@ -136,10 +136,17 @@ func (m *CmdNetworkManager) CreateVeth(name, peer, master string, ns string) err
 		if err := m.run(ns, "ip", "link", "set", name, "up"); err != nil {
 			return err
 		}
-		// If master is set, attach peer to master in default namespace
+		// If master is set, attach to bridge. If the bridge exists in the namespace,
+		// attach the namespace end (name) to it. Otherwise, attach the peer to the host bridge.
 		if master != "" {
-			if err := m.run("", "ip", "link", "set", peer, "master", master); err != nil {
-				return err
+			if m.run(ns, "ip", "link", "show", master) == nil {
+				if err := m.run(ns, "ip", "link", "set", name, "master", master); err != nil {
+					return err
+				}
+			} else {
+				if err := m.run("", "ip", "link", "set", peer, "master", master); err != nil {
+					return err
+				}
 			}
 		}
 	} else {
@@ -367,7 +374,7 @@ func (m *DryRunNetworkManager) CreateVeth(name, peer, master string, ns string) 
 		m.commands = append(m.commands, fmt.Sprintf("ip link set %s up", peer))
 		m.commands = append(m.commands, fmt.Sprintf("ip netns exec %s ip link set %s up", ns, name))
 		if master != "" {
-			m.commands = append(m.commands, fmt.Sprintf("ip link set %s master %s", peer, master))
+			m.commands = append(m.commands, fmt.Sprintf("ip link set %s master %s (or inside netns if bridge is there)", peer, master))
 		}
 	} else {
 		m.commands = append(m.commands, fmt.Sprintf("ip link set %s up", name))

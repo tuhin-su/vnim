@@ -90,7 +90,13 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// Resolve environment variables in raw YAML content
+	// Resolve environment variables in raw YAML content.
+	// If running under sudo, temporarily override USER to the original user for environment expansion.
+	originalUser := os.Getenv("USER")
+	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
+		os.Setenv("USER", sudoUser)
+		defer os.Setenv("USER", originalUser)
+	}
 	resolvedData := os.ExpandEnv(string(data))
 
 	var cfg Config
@@ -105,7 +111,10 @@ func LoadConfig(path string) (*Config, error) {
 }
 
 func (c *Config) normalizeAndDefault() {
-	currentUser := os.Getenv("USER")
+	currentUser := os.Getenv("SUDO_USER")
+	if currentUser == "" {
+		currentUser = os.Getenv("USER")
+	}
 	if currentUser == "" {
 		currentUser = "root"
 	}
