@@ -93,3 +93,54 @@ objects:
 func contains(str, substr string) bool {
 	return filepath.Clean(str) != "" && (len(substr) == 0 || len(str) >= len(substr) && (str[:len(substr)] == substr || contains(str[1:], substr)))
 }
+
+func TestPluginConfigValidation(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "vnim-plugin-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	validPluginYAML := `
+objects:
+  - type: bridge
+    name: br0
+services:
+  - type: plugin
+    interface: br0
+    mode: exec
+    script: echo "hello"
+`
+	validPath := filepath.Join(tempDir, "plugin_valid.yaml")
+	_ = os.WriteFile(validPath, []byte(validPluginYAML), 0644)
+	cfg, err := LoadConfig(validPath)
+	if err != nil {
+		t.Fatalf("failed to load valid plugin config: %v", err)
+	}
+	if err := cfg.GetErrors(); err != nil {
+		t.Errorf("expected no validation errors, got: %v", err)
+	}
+
+	invalidPluginYAML := `
+objects:
+  - type: bridge
+    name: br0
+services:
+  - type: plugin
+    interface: br0
+    mode: invalid-mode
+    script: echo "hello"
+    path: /usr/bin/echo
+`
+	invalidPath := filepath.Join(tempDir, "plugin_invalid.yaml")
+	_ = os.WriteFile(invalidPath, []byte(invalidPluginYAML), 0644)
+	cfg2, err := LoadConfig(invalidPath)
+	if err != nil {
+		t.Fatalf("failed to load invalid plugin config: %v", err)
+	}
+	errs := cfg2.Validate()
+	if len(errs) != 2 {
+		t.Errorf("expected 2 validation errors, got %d: %v", len(errs), errs)
+	}
+}
+

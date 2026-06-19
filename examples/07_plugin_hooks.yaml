@@ -1,0 +1,44 @@
+# Virtual Network Interface Manager (VNIM) - Plugin Hooks Example
+# This configuration demonstrates how to write inline scripts (plugins) to start/stop QEMU VMs or Docker/Podman containers.
+
+objects:
+  - type: namespace
+    name: plugin-ns
+
+  - type: bridge
+    name: br-plugin
+    namespace: plugin-ns
+
+  - type: tap
+    name: tap-qemu
+    owner: ${USER}
+    master: br-plugin
+    namespace: plugin-ns
+    mac: 00:11:22:33:44:aa
+
+  - type: address
+    interface: br-plugin
+    address: 192.168.60.1/24
+    namespace: plugin-ns
+
+services:
+  # 1. Run a QEMU VM plugin (as the original non-root user via 'mode: exec') connected to the tap interface.
+  #    All placeholders like {{.Interface}}, {{.Mac}}, and {{.Owner}} are replaced dynamically by VNIM.
+  - type: plugin
+    interface: tap-qemu
+    mode: exec
+    script: |
+      qemu-system-x86_64 -m 1024 -nographic \
+        -netdev tap,id=net0,ifname={{.Interface}},script=no,downscript=no \
+        -device virtio-net-pci,netdev=net0,mac={{.Mac}} \
+        -drive file=/home/{{.Owner}}/alpine.img,media=disk,if=virtio
+
+  # 2. Run a Docker container inside the namespace using root privileges ('mode: su-exec')
+  - type: plugin
+    interface: br-plugin
+    mode: su-exec
+    script: |
+      docker run --rm --name plugin-web-server \
+        --net=ns:/var/run/netns/{{.Namespace}} -d nginx:alpine
+    cleanup_script: |
+      docker stop plugin-web-server

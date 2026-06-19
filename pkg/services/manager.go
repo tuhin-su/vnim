@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/tuhin-su/vnim/pkg/config"
@@ -130,6 +132,8 @@ func (sm *ServiceManager) StartService(idx int, svc config.Service, ns string) (
 		return sm.startDnsmasq(idx, svc, ns)
 	case "http":
 		return sm.startHTTP(idx, svc, ns)
+	case "plugin":
+		return sm.startPlugin(idx, svc, ns)
 	default:
 		return 0, fmt.Errorf("unknown service type %q", svc.Type)
 	}
@@ -296,4 +300,215 @@ func RunHTTPServer(port int, rootDir string) error {
 	addr := fmt.Sprintf("0.0.0.0:%d", port)
 	fmt.Printf("Starting built-in HTTP server on %s serving %s...\n", addr, rootDir)
 	return http.ListenAndServe(addr, nil)
+}
+
+func getOriginalUser() string {
+	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
+		return sudoUser
+	}
+	if user := os.Getenv("USER"); user != "" {
+		return user
+	}
+	return "root"
+}
+
+func getInterfaceMAC(name string, ns string) (string, error) {
+	var cmd *exec.Cmd
+	if ns != "" {
+		cmd = exec.Command("ip", "netns", "exec", ns, "ip", "link", "show", name)
+	} else {
+		cmd = exec.Command("ip", "link", "show", name)
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	lines := strings.Split(string(out), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.Contains(line, "link/ether ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				return parts[1], nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no ethernet MAC address found in output")
+}
+
+type templateCtx struct {
+	Interface string
+	Namespace string
+	Mac       string
+	IP        string
+	IPNoMask  string
+	PlanName  string
+	StateDir  string
+	Owner     string
+}
+
+func compileTemplate(tmplStr string, ctx templateCtx) (string, error) {
+	tmpl, err := template.New("plugin").Parse(tmplStr)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %w", err)
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, ctx); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+	return buf.String(), nil
+}
+
+func (sm *ServiceManager) compileAndWriteScript(scriptContent string, filename string, ctx templateCtx) (string, error) {
+	compiledScript, err := compileTemplate(scriptContent, ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Ensure script starts with a shebang line so it is executable by the shell
+	trimmed := strings.TrimSpace(compiledScript)
+	if !strings.HasPrefix(trimmed, "#!") {
+		compiledScript = "#!/bin/sh\n" + compiledScript
+	}
+
+	scriptPath := filepath.Join(sm.stateDir, filename)
+	if err := os.WriteFile(scriptPath, []byte(compiledScript), 0755); err != nil {
+		return "", fmt.Errorf("failed to write script to %s: %w", scriptPath, err)
+	}
+	return scriptPath, nil
+}
+
+func runPluginCmd(svcMode string, owner string, binary string, args []string, logPath string, waitForCompletion bool) (int, error) {
+	logFile, err := os.Create(logPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create log file: %w", err)
+	}
+
+	var cmd *exec.Cmd
+	if svcMode == "exec" && owner != "root" {
+		fullArgs := append([]string{"-u", owner, "-E", binary}, args...)
+		cmd = exec.Command("sudo", fullArgs...)
+	} else {
+		cmd = exec.Command(binary, args...)
+	}
+
+	cmd.Stdout = logFile
+	cmd.Stderr = logFile
+
+	if waitForCompletion {
+		defer logFile.Close()
+		if err := cmd.Run(); err != nil {
+			return 0, err
+		}
+		return 0, nil
+	}
+
+	if err := cmd.Start(); err != nil {
+		logFile.Close()
+		return 0, err
+	}
+	logFile.Close()
+
+	// Wait briefly to check if it crashed immediately
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- cmd.Wait()
+	}()
+
+	select {
+	case err := <-errChan:
+		return 0, fmt.Errorf("plugin exited immediately: %w (check logs at %s)", err, logPath)
+	case <-time.After(500 * time.Millisecond):
+		// Process is running
+		return cmd.Process.Pid, nil
+	}
+}
+
+func (sm *ServiceManager) buildTemplateCtx(svc config.Service, ns string) templateCtx {
+	var macStr string
+	if mac, err := getInterfaceMAC(svc.Interface, ns); err == nil {
+		macStr = mac
+	}
+
+	var ipStr, ipNoMask string
+	if ip, ipnet, err := getInterfaceIP(svc.Interface, ns); err == nil {
+		ipStr = ipnet.String()
+		ipNoMask = ip.String()
+	}
+
+	return templateCtx{
+		Interface: svc.Interface,
+		Namespace: ns,
+		Mac:       macStr,
+		IP:        ipStr,
+		IPNoMask:  ipNoMask,
+		PlanName:  sm.planName,
+		StateDir:  sm.stateDir,
+		Owner:     getOriginalUser(),
+	}
+}
+
+func (sm *ServiceManager) startPlugin(idx int, svc config.Service, ns string) (int, error) {
+	ctx := sm.buildTemplateCtx(svc, ns)
+	logPath := filepath.Join(sm.stateDir, fmt.Sprintf("plugin_up_%d.log", idx))
+
+	if svc.Script != "" {
+		scriptPath, err := sm.compileAndWriteScript(svc.Script, fmt.Sprintf("plugin_up_%d.sh", idx), ctx)
+		if err != nil {
+			return 0, err
+		}
+		return runPluginCmd(svc.Mode, ctx.Owner, scriptPath, nil, logPath, false)
+	}
+
+	compiledPath, err := compileTemplate(svc.Path, ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	compiledArgs := make([]string, len(svc.Args))
+	for i, arg := range svc.Args {
+		cArg, err := compileTemplate(arg, ctx)
+		if err != nil {
+			return 0, err
+		}
+		compiledArgs[i] = cArg
+	}
+
+	return runPluginCmd(svc.Mode, ctx.Owner, compiledPath, compiledArgs, logPath, false)
+}
+
+func (sm *ServiceManager) RunCleanup(idx int, svc config.Service, ns string) error {
+	ctx := sm.buildTemplateCtx(svc, ns)
+	logPath := filepath.Join(sm.stateDir, fmt.Sprintf("plugin_down_%d.log", idx))
+
+	if svc.CleanupScript != "" {
+		scriptPath, err := sm.compileAndWriteScript(svc.CleanupScript, fmt.Sprintf("plugin_down_%d.sh", idx), ctx)
+		if err != nil {
+			return err
+		}
+		_, err = runPluginCmd(svc.Mode, ctx.Owner, scriptPath, nil, logPath, true)
+		return err
+	}
+
+	if svc.CleanupPath != "" {
+		compiledPath, err := compileTemplate(svc.CleanupPath, ctx)
+		if err != nil {
+			return err
+		}
+
+		compiledArgs := make([]string, len(svc.CleanupArgs))
+		for i, arg := range svc.CleanupArgs {
+			cArg, err := compileTemplate(arg, ctx)
+			if err != nil {
+				return err
+			}
+			compiledArgs[i] = cArg
+		}
+
+		_, err = runPluginCmd(svc.Mode, ctx.Owner, compiledPath, compiledArgs, logPath, true)
+		return err
+	}
+
+	return nil
 }

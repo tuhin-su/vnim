@@ -193,4 +193,44 @@ Spawns a combined DHCP + TFTP server configured for Network PXE Booting.
   static_leases:                 # (Optional) Static MAC-to-IP reservations
     - mac: 52:54:00:12:34:56
       ip: 192.168.100.21
+
+### Plugin (Custom Hook / VM / Container)
+Spawns arbitrary inline scripts or external binaries attached to VNIM-managed network interfaces, automatically resolving parameters and handling background process lifecycles.
+
+```yaml
+- type: plugin
+  interface: tap-vm              # Target interface (binds context parameters)
+  mode: exec                     # Privilege mode: 'exec' (runs as original user) or 'su-exec' (runs as root, default)
+  
+  # Option A: Inline Script
+  script: |
+    qemu-system-x86_64 -m 2048 -nographic \
+      -netdev tap,id=net0,ifname={{.Interface}},script=no,downscript=no \
+      -device virtio-net-pci,netdev=net0,mac={{.Mac}} \
+      -drive file=/home/{{.Owner}}/images/os.img,media=disk,if=virtio
+  
+  # Option B: External File (Only define script OR path, not both)
+  # path: /usr/local/bin/deploy-container.sh
+  # args:
+  #   - "--name"
+  #   - "web-server"
+  #   - "--netns-path"
+  #   - "/var/run/netns/{{.Namespace}}"
+
+  # Optional cleanup script (runs on 'vnim down')
+  # cleanup_script: |
+  #   echo "Cleaning up container or VM..."
+```
+
+#### Dynamic Template Placeholders
+The fields `script`, `cleanup_script`, `path`, `args`, `cleanup_path`, and `cleanup_args` are processed as templates before execution, resolving the following tags:
+
+* `{{.Interface}}`: Name of target interface (e.g. `tap-vm`).
+* `{{.Namespace}}`: Network namespace of the interface (e.g. `lab-ns`).
+* `{{.Mac}}`: MAC address of the interface (e.g. `52:54:00:12:34:56`).
+* `{{.IP}}`: CIDR formatted IP of the interface (e.g. `192.168.100.1/24`).
+* `{{.IPNoMask}}`: IP address of the interface without subnet (e.g. `192.168.100.1`).
+* `{{.PlanName}}`: Active VNIM plan name.
+* `{{.StateDir}}`: Path to the active state subdirectory.
+* `{{.Owner}}`: The name of the non-root execution user who ran the command.
 ```

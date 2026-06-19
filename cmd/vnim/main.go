@@ -348,6 +348,35 @@ func handleDryRun(yamlPath string) {
 				}
 				fmt.Printf("    * HTTP server on port %d serving %s\n", port, root)
 			}
+			if svc.Type == "plugin" {
+				fmt.Printf("    * Privilege mode: %s\n", svc.Mode)
+				if svc.Script != "" {
+					fmt.Println("    * Inline Script:")
+					lines := strings.Split(strings.TrimSpace(svc.Script), "\n")
+					for _, l := range lines {
+						fmt.Printf("        %s\n", l)
+					}
+				}
+				if svc.Path != "" {
+					fmt.Printf("    * Path: %s\n", svc.Path)
+					if len(svc.Args) > 0 {
+						fmt.Printf("    * Args: %s\n", strings.Join(svc.Args, " "))
+					}
+				}
+				if svc.CleanupScript != "" {
+					fmt.Println("    * Cleanup Inline Script:")
+					lines := strings.Split(strings.TrimSpace(svc.CleanupScript), "\n")
+					for _, l := range lines {
+						fmt.Printf("        %s\n", l)
+					}
+				}
+				if svc.CleanupPath != "" {
+					fmt.Printf("    * Cleanup Path: %s\n", svc.CleanupPath)
+					if len(svc.CleanupArgs) > 0 {
+						fmt.Printf("    * Cleanup Args: %s\n", strings.Join(svc.CleanupArgs, " "))
+					}
+				}
+			}
 		}
 	}
 }
@@ -546,7 +575,7 @@ func handleHelperUp(yamlPath string) {
 
 		pid, err := sm.StartService(idx, svc, ns)
 		if err != nil {
-			stopActiveServices(activeServices)
+			stopActiveServices(activeServices, cfg, planName)
 			rollback(nm, cfg)
 			fmt.Fprintf(os.Stderr, "Error starting service %s: %v\n", svc.Type, err)
 			os.Exit(1)
@@ -569,7 +598,7 @@ func handleHelperUp(yamlPath string) {
 	}
 
 	if err := state.SaveState(planName, planState); err != nil {
-		stopActiveServices(activeServices)
+		stopActiveServices(activeServices, cfg, planName)
 		rollback(nm, cfg)
 		fmt.Fprintf(os.Stderr, "Error saving state file: %v\n", err)
 		os.Exit(1)
@@ -588,8 +617,15 @@ func handleHelperDown(target string) {
 
 	fmt.Printf("Destroying topology %q...\n", planName)
 
+	var cfg *config.Config
+	if ps.YAMLPath != "" {
+		if _, err := os.Stat(ps.YAMLPath); err == nil {
+			cfg, _ = config.LoadConfig(ps.YAMLPath)
+		}
+	}
+
 	// 1. Stop all services
-	stopActiveServices(ps.Services)
+	stopActiveServices(ps.Services, cfg, planName)
 
 	// 2. Delete interfaces and namespaces in reverse order
 	nm := network.NewCmdNetworkManager()
@@ -646,8 +682,26 @@ func rollback(nm network.NetworkManager, cfg *config.Config) {
 	}
 }
 
-func stopActiveServices(svcs []state.ActiveService) {
-	for _, svc := range svcs {
+func stopActiveServices(svcs []state.ActiveService, cfg *config.Config, planName string) {
+	for idx, svc := range svcs {
+		// Run cleanup hook if available
+		if cfg != nil && idx < len(cfg.Services) {
+			targetSvc := cfg.Services[idx]
+			if targetSvc.Type == "plugin" && (targetSvc.CleanupScript != "" || targetSvc.CleanupPath != "") {
+				sm := services.NewServiceManager(planName)
+				var ns string
+				for _, obj := range cfg.Objects {
+					if obj.Name == targetSvc.Interface {
+						ns = obj.Namespace
+						break
+					}
+				}
+				if err := sm.RunCleanup(idx, targetSvc, ns); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: cleanup hook failed for plugin %s: %v\n", targetSvc.Interface, err)
+				}
+			}
+		}
+
 		if svc.PID > 0 {
 			terminateProcess(svc.PID)
 		}

@@ -2,6 +2,7 @@ package tree
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/tuhin-su/vnim/pkg/config"
@@ -99,6 +100,13 @@ func BuildTree(cfg *config.Config) []*Node {
 	for _, svc := range cfg.Services {
 		if node, ok := nodes[svc.Interface]; ok {
 			svcDetail := fmt.Sprintf("svc: %s", svc.Type)
+			if svc.Type == "plugin" {
+				if svc.Path != "" {
+					svcDetail += fmt.Sprintf(" (%s)", filepath.Base(svc.Path))
+				} else {
+					svcDetail += " (inline)"
+				}
+			}
 			if svc.Port > 0 {
 				svcDetail += fmt.Sprintf(":%d", svc.Port)
 			}

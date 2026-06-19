@@ -57,6 +57,15 @@ type Service struct {
 	DhcpNextServer string        `yaml:"dhcp_next_server,omitempty"`
 	DhcpBootfile   string        `yaml:"dhcp_bootfile,omitempty"`
 	StaticLeases   []StaticLease `yaml:"static_leases,omitempty"`
+
+	// Plugin Hook configurations
+	Mode          string   `yaml:"mode,omitempty"`           // "exec" or "su-exec"
+	Path          string   `yaml:"path,omitempty"`           // Path to startup binary/script
+	Args          []string `yaml:"args,omitempty"`           // Startup arguments
+	Script        string   `yaml:"script,omitempty"`         // Inline startup script
+	CleanupPath   string   `yaml:"cleanup_path,omitempty"`   // Path to cleanup binary/script
+	CleanupArgs   []string `yaml:"cleanup_args,omitempty"`   // Cleanup arguments
+	CleanupScript string   `yaml:"cleanup_script,omitempty"` // Inline cleanup script
 }
 
 type StaticLease struct {
@@ -110,6 +119,12 @@ func (c *Config) normalizeAndDefault() {
 
 	for i := range c.Services {
 		c.Services[i].Type = strings.ToLower(strings.TrimSpace(c.Services[i].Type))
+		if c.Services[i].Type == "plugin" {
+			c.Services[i].Mode = strings.ToLower(strings.TrimSpace(c.Services[i].Mode))
+			if c.Services[i].Mode == "" {
+				c.Services[i].Mode = "su-exec"
+			}
+		}
 	}
 }
 
@@ -132,11 +147,12 @@ func (c *Config) Validate() []error {
 	}
 
 	validServices := map[string]bool{
-		"dhcp": true,
-		"dns":  true,
-		"http": true,
-		"tftp": true,
-		"pxe":  true,
+		"dhcp":   true,
+		"dns":    true,
+		"http":   true,
+		"tftp":   true,
+		"pxe":    true,
+		"plugin": true,
 	}
 
 	definedInterfaces := make(map[string]bool)
@@ -377,6 +393,19 @@ func (c *Config) Validate() []error {
 		if svc.Type == "pxe" {
 			if svc.DhcpBootfile == "" {
 				errs = append(errs, fmt.Errorf("service pxe requires dhcp_bootfile to be set"))
+			}
+		}
+
+		// Plugin specific validations
+		if svc.Type == "plugin" {
+			if svc.Script == "" && svc.Path == "" {
+				errs = append(errs, fmt.Errorf("service plugin: either 'script' or 'path' must be specified"))
+			}
+			if svc.Script != "" && svc.Path != "" {
+				errs = append(errs, fmt.Errorf("service plugin: cannot specify both 'script' and 'path'"))
+			}
+			if svc.Mode != "exec" && svc.Mode != "su-exec" {
+				errs = append(errs, fmt.Errorf("service plugin: invalid mode %q (must be 'exec' or 'su-exec')", svc.Mode))
 			}
 		}
 	}
