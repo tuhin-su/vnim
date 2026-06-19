@@ -1,0 +1,73 @@
+objects:
+  # --- CENTRAL BACKBONE SWITCH (Default Namespace) ---
+  - type: bridge
+    name: br-backbone
+
+  - type: address
+    interface: br-backbone
+    address: 10.10.10.1/24
+
+  # --- NODE 1 (Namespace: node-1) ---
+  - type: namespace
+    name: node-1
+
+  - type: veth
+    name: v1-node
+    peer: v1-host
+    master: br-backbone   # Host peer is connected to the central backbone bridge
+    namespace: node-1     # Local interface goes inside node-1 namespace
+    mac: 00:11:22:33:44:01
+
+  - type: address
+    interface: v1-node
+    address: 10.10.10.11/24
+    namespace: node-1
+
+  # --- NODE 2 (Namespace: node-2) ---
+  - type: namespace
+    name: node-2
+
+  - type: veth
+    name: v2-node
+    peer: v2-host
+    master: br-backbone
+    namespace: node-2
+    mac: 00:11:22:33:44:02
+
+  - type: address
+    interface: v2-node
+    address: 10.10.10.12/24
+    namespace: node-2
+
+  # --- NODE 3 (Namespace: node-3) ---
+  - type: namespace
+    name: node-3
+
+  - type: veth
+    name: v3-node
+    peer: v3-host
+    master: br-backbone
+    namespace: node-3
+    mac: 00:11:22:33:44:03
+
+  - type: address
+    interface: v3-node
+    address: 10.10.10.13/24
+    namespace: node-3
+
+services:
+  # Run a DHCP server on the backbone switch for any dynamic node configuration
+  - type: dhcp
+    interface: br-backbone
+    subnet: 10.10.10.0/24
+    range_start: 10.10.10.100
+    range_end: 10.10.10.200
+    router: 10.10.10.1
+    dns: 1.1.1.1
+    static_leases:
+      - mac: 00:11:22:33:44:01
+        ip: 10.10.10.11
+      - mac: 00:11:22:33:44:02
+        ip: 10.10.10.12
+      - mac: 00:11:22:33:44:03
+        ip: 10.10.10.13

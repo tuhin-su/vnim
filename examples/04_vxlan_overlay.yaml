@@ -1,0 +1,26 @@
+# VNIM Example 4: VXLAN Overlay Network
+# Provisions a VXLAN interface using a parent underlay interface and multicast discovery.
+
+objects:
+  # Simulate the physical host network underlay interface
+  - type: dummy
+    name: phys0
+
+  - type: address
+    interface: phys0
+    address: 192.168.12.1/24
+
+  # Establish VXLAN overlay (VNI 10) parented by the dummy underlay interface
+  - type: vxlan
+    name: vxlan-overlay
+    parent: phys0
+    vxlan_id: 10
+    group: 239.0.0.100    # Multicast group IP for endpoint discovery
+    port: 4789            # Standard IANA VXLAN port
+    namespace: ""         # Created on default host
+    mac: 00:44:55:66:77:88
+
+  # Assign L2 overlay IP subnet to the VXLAN interface
+  - type: address
+    interface: vxlan-overlay
+    address: 10.0.10.1/24

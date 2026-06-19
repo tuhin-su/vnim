@@ -1,0 +1,40 @@
+# VNIM Example 3: Link Aggregation (Bonds) and VLAN Sub-interfaces
+# Simulates physical interface aggregation and L2 tagged network segregation.
+
+objects:
+  # Create two dummy interfaces to represent physical NICs
+  - type: dummy
+    name: eth10
+
+  - type: dummy
+    name: eth11
+
+  # Create an aggregated Bond link using active-backup mode
+  - type: bond
+    name: bond-core
+    interfaces:
+      - eth10
+      - eth11
+    mode: active-backup
+    mac: 00:22:33:44:55:00
+
+  # Create tagged VLAN 100 sub-interface parented by the bond
+  - type: vlan
+    name: bond-core.100
+    parent: bond-core
+    vlan_id: 100
+    mac: 00:22:33:44:55:01
+
+  - type: address
+    interface: bond-core.100
+    address: 10.100.0.1/24
+
+  # Create tagged VLAN 200 sub-interface parented by the bond
+  - type: vlan
+    name: bond-core.200
+    parent: bond-core
+    vlan_id: 200
+
+  - type: address
+    interface: bond-core.200
+    address: 10.200.0.1/24

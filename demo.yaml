@@ -1,0 +1,68 @@
+# Virtual Network Interface Manager (VNIM) - Demo Configuration
+# This configuration demonstrates namespaces, bridges, TAP/TUN interfaces, dummy interfaces, VETH pairs, VLANs, and active HTTP/DHCP services.
+
+objects:
+  # 1. Create a dedicated network namespace to isolate our lab topology
+  - type: namespace
+    name: demo-ns
+
+  # 2. Create a bridge inside the network namespace
+  - type: bridge
+    name: br-demo
+    namespace: demo-ns
+
+  # 3. Assign an IP address to the bridge interface
+  - type: address
+    interface: br-demo
+    address: 192.168.50.1/24
+    namespace: demo-ns
+
+  # 4. Create a TAP interface for virtualization or simulation
+  - type: tap
+    name: tap-vm
+    owner: ${USER}
+    master: br-demo
+    namespace: demo-ns
+    mac: 00:11:22:33:44:55
+
+  # 5. Create a VETH pair to route traffic from the default namespace to our demo-ns namespace
+  - type: veth
+    name: veth-ns
+    peer: veth-host
+    namespace: demo-ns
+
+  # 6. Create a VLAN interface parented by the host-side VETH interface
+  - type: vlan
+    name: veth.100
+    parent: veth-host
+    vlan_id: 100
+
+  # 7. Create a Dummy loopback/WAN interface inside the namespace
+  - type: dummy
+    name: dummy0
+    namespace: demo-ns
+
+  # 8. Assign an IP address to the dummy interface
+  - type: address
+    interface: dummy0
+    address: 172.16.10.1/24
+    namespace: demo-ns
+
+services:
+  # 1. Run a temporary DHCP server on the bridge inside the namespace
+  - type: dhcp
+    interface: br-demo
+    subnet: 192.168.50.0/24
+    range_start: 192.168.50.20
+    range_end: 192.168.50.80
+    router: 192.168.50.1
+    dns: 1.1.1.1
+    static_leases:
+      - mac: 00:11:22:33:44:55
+        ip: 192.168.50.75
+
+  # 2. Run a temporary static HTTP web server on the bridge inside the namespace
+  - type: http
+    interface: br-demo
+    port: 8080
+    root: .

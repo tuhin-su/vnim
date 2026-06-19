@@ -1,0 +1,68 @@
+# VNIM Example 2: Multi-Node Namespaces linked via VETH Switch backbone
+# Connects two isolated guest namespaces (nodes) to a central bridge gateway.
+
+objects:
+  # Central L2 Backbone Switch (Default Namespace)
+  - type: bridge
+    name: br-switch
+
+  - type: address
+    interface: br-switch
+    address: 172.16.0.1/24
+
+  # --- Node 1 ---
+  - type: namespace
+    name: guest-node1
+
+  - type: veth
+    name: eth-node1
+    peer: node1-host
+    master: br-switch
+    namespace: guest-node1
+    mac: 00:11:22:33:aa:01
+
+  - type: address
+    interface: eth-node1
+    address: 172.16.0.11/24
+    namespace: guest-node1
+
+  # --- Node 2 ---
+  - type: namespace
+    name: guest-node2
+
+  - type: veth
+    name: eth-node2
+    peer: node2-host
+    master: br-switch
+    namespace: guest-node2
+    mac: 00:11:22:33:aa:02
+
+  - type: address
+    interface: eth-node2
+    address: 172.16.0.12/24
+    namespace: guest-node2
+
+services:
+  # DHCP dynamic allocation for host switch
+  - type: dhcp
+    interface: br-switch
+    subnet: 172.16.0.0/24
+    range_start: 172.16.0.100
+    range_end: 172.16.0.200
+    static_leases:
+      - mac: 00:11:22:33:aa:01
+        ip: 172.16.0.11
+      - mac: 00:11:22:33:aa:02
+        ip: 172.16.0.12
+
+  # Custom DNS service routing names inside the switch backbone
+  - type: dns
+    interface: br-switch
+    port: 53
+    hosts:
+      - name: node1.local
+        ip: 172.16.0.11
+      - name: node2.local
+        ip: 172.16.0.12
+      - name: gateway.local
+        ip: 172.16.0.1

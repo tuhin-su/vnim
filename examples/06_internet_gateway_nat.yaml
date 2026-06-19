@@ -1,0 +1,46 @@
+# VNIM Example 6: Internet Gateway NAT and Namespace Routing
+# This setup links an isolated namespace to the host network, enables IP forwarding,
+# configures NAT masquerade routing, and installs default gateways.
+
+objects:
+  # 1. Create the isolated namespace representing our secure private LAN
+  - type: namespace
+    name: secure-lan
+
+  # 2. Create the private bridge inside the namespace
+  - type: bridge
+    name: br-lan
+    namespace: secure-lan
+
+  - type: address
+    interface: br-lan
+    address: 192.168.10.1/24
+    namespace: secure-lan
+
+  # 3. Create a VETH pair representing the WAN connection link to the host
+  - type: veth
+    name: veth-wan
+    peer: veth-wan-host
+    namespace: secure-lan
+
+  # 4. Assign IP addresses to both ends of the VETH WAN link
+  - type: address
+    interface: veth-wan-host
+    address: 10.200.0.1/24
+
+  - type: address
+    interface: veth-wan
+    address: 10.200.0.2/24
+    namespace: secure-lan
+
+  # 5. Add a default gateway route inside the namespace routing all WAN traffic through the host
+  - type: route
+    destination: 0.0.0.0/0
+    gateway: 10.200.0.1
+    interface: veth-wan
+    namespace: secure-lan
+
+  # 6. Establish a NAT Masquerade rule on the host side to share host internet with the WAN subnet
+  - type: nat
+    interface: veth-wan-host
+    source_subnet: 10.200.0.0/24

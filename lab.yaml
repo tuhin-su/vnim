@@ -1,0 +1,61 @@
+# Virtual Network Interface Manager (VNIM) - Demo Lab Topology
+objects:
+  # Create a network namespace for our virtual environment
+  - type: namespace
+    name: ns-lab
+
+  # Create a bridge inside the namespace
+  - type: bridge
+    name: br0
+    namespace: ns-lab
+
+  # Assign an IP address to the bridge
+  - type: address
+    interface: br0
+    address: 192.168.100.1/24
+    namespace: ns-lab
+
+  # Create a TAP interface attached to the bridge (for QEMU/VM connection)
+  - type: tap
+    name: vm-net
+    owner: ${USER}
+    master: br0
+    namespace: ns-lab
+    mac: 00:11:22:33:44:aa
+
+  # Create a Dummy interface inside the namespace
+  - type: dummy
+    name: wan0
+    namespace: ns-lab
+
+  # Assign an IP address to the dummy interface
+  - type: address
+    interface: wan0
+    address: 10.0.0.1/24
+    namespace: ns-lab
+
+  # Create a VETH pair (connecting default namespace to the ns-lab namespace)
+  # veth-ns goes into ns-lab; veth-host stays in the default namespace.
+  - type: veth
+    name: veth-ns
+    peer: veth-host
+    namespace: ns-lab
+
+services:
+  # Run a DHCP server inside the namespace on the bridge
+  - type: dhcp
+    interface: br0
+    subnet: 192.168.100.0/24
+    range_start: 192.168.100.50
+    range_end: 192.168.100.150
+    router: 192.168.100.1
+    dns: 1.1.1.1
+    static_leases:
+      - mac: 00:11:22:33:44:aa
+        ip: 192.168.100.99
+
+  # Run a web server inside the namespace
+  - type: http
+    interface: br0
+    port: 8080
+    root: .

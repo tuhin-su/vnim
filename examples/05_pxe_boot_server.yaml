@@ -1,0 +1,42 @@
+# VNIM Example 5: PXE Netboot Installation Infrastructure
+# Provisions a namespace bridge containing active PXE and TFTP booting services.
+
+objects:
+  - type: namespace
+    name: pxe-net
+
+  - type: bridge
+    name: br-pxe
+    namespace: pxe-net
+
+  - type: address
+    interface: br-pxe
+    address: 192.168.200.1/24
+    namespace: pxe-net
+
+  # TAP endpoint where the booting target PXE VM connects
+  - type: tap
+    name: pxe-client
+    owner: ${USER}
+    master: br-pxe
+    namespace: pxe-net
+    mac: 52:54:00:12:34:56
+
+services:
+  # TFTP server supplying PXE bootloader assets (e.g. pxelinux.0, kernel, initrd)
+  - type: tftp
+    interface: br-pxe
+    root: /var/lib/tftpboot
+
+  # PXE service coordinating IP parameters and directing booting targets to the TFTP files
+  - type: pxe
+    interface: br-pxe
+    subnet: 192.168.200.0/24
+    range_start: 192.168.200.10
+    range_end: 192.168.200.50
+    dhcp_bootfile: pxelinux.0
+    dhcp_next_server: 192.168.200.1  # Direct target clients to this IP for TFTP retrieval
+    root: /var/lib/tftpboot
+    static_leases:
+      - mac: 52:54:00:12:34:56
+        ip: 192.168.200.25
