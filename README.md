@@ -2,7 +2,7 @@
 
 [![Go Version](https://img.shields.io/github/go-mod/go-version/tuhin-su/vnim?color=00ADD8&logo=go&logoColor=white)](https://golang.org)
 [![Platform](https://img.shields.io/badge/platform-Linux-E34F26?logo=linux&logoColor=white)](#)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](#)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](file:///home/master/Desktop/vnim/LICENSE)
 [![Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](#)
 
 VNIM is a professional Linux network orchestration tool for defining, spinning up, and managing complex virtual network topologies inside isolated network namespaces via simple YAML configs.
@@ -16,6 +16,7 @@ VNIM is a professional Linux network orchestration tool for defining, spinning u
 * [🔒 Permission & Ownership Model](#-permission--ownership-model)
 * [🌐 Plan Lifecycle commands](#-plan-lifecycle-commands)
 * [📚 Full Documentation Guides](#-full-documentation-guides)
+* [🤝 Contributing & Open Source](#-contributing--open-source)
 
 ---
 
@@ -123,3 +124,15 @@ For more details on writing plans, CLI switches, and design choices:
 2. **[docs/configuration_guide.md](file:///home/master/Desktop/vnim/docs/configuration_guide.md)**: Complete YAML schemas and properties for all interfaces and service configurations.
 3. **[docs/architecture.md](file:///home/master/Desktop/vnim/docs/architecture.md)**: Subsystem layout, state JSON structures, and rollback workflows.
 4. **[examples/](file:///home/master/Desktop/vnim/examples/)**: Check out production-ready network plans for bridges, node bridges, Bonds/VLANs, and VXLAN overlays.
+
+---
+
+## 🤝 Contributing & Open Source
+
+We welcome and appreciate all forms of contributions! Whether you're reporting a bug, proposing a new feature, or submitting a pull request, you are making VNIM better for everyone.
+
+To get started, please refer to:
+* 📄 **[CONTRIBUTING.md](file:///home/master/Desktop/vnim/CONTRIBUTING.md)**: Our developer guide for building, testing, and formatting.
+* ⚖️ **[LICENSE](file:///home/master/Desktop/vnim/LICENSE)**: Distributed under the permissive MIT License.
+* 🕊️ **[CODE_OF_CONDUCT.md](file:///home/master/Desktop/vnim/CODE_OF_CONDUCT.md)**: Standards of behavior within our community.
+* 🛡️ **[SECURITY.md](file:///home/master/Desktop/vnim/SECURITY.md)**: Responsible disclosure guidelines for security vulnerabilities.
