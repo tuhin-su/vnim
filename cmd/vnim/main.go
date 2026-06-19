@@ -713,26 +713,52 @@ func terminateProcess(pid int) {
 	if err != nil {
 		return
 	}
+
+	// Determine if the process group exists by checking if syscall.Kill(-pid, 0)
+	// returns something other than ESRCH.
+	groupExists := true
+	if err := syscall.Kill(-pid, 0); err == syscall.ESRCH {
+		groupExists = false
+	}
+
+	// 1. Send SIGTERM to the process group (if it exists) and the individual process
+	if groupExists {
+		_ = syscall.Kill(-pid, syscall.SIGTERM)
+	}
 	_ = proc.Signal(syscall.SIGTERM)
 
-	// Poll using signal 0 to check if process is dead
+	// 2. Poll to check if dead
 	for i := 0; i < 20; i++ { // wait up to 2 seconds
-		err := proc.Signal(syscall.Signal(0))
-		if err != nil {
-			// Process is dead
-			return
+		if groupExists {
+			if err := syscall.Kill(-pid, 0); err != nil {
+				// Process group is dead (or no permissions/other error)
+				return
+			}
+		} else {
+			if err := proc.Signal(syscall.Signal(0)); err != nil {
+				// Process is dead
+				return
+			}
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	// Force kill if still alive
+	// 3. Force kill if still alive
+	if groupExists {
+		_ = syscall.Kill(-pid, syscall.SIGKILL)
+	}
 	_ = proc.Signal(syscall.SIGKILL)
 
-	// Poll again to ensure it is killed
+	// 4. Poll again to ensure it is killed
 	for i := 0; i < 10; i++ {
-		err := proc.Signal(syscall.Signal(0))
-		if err != nil {
-			return
+		if groupExists {
+			if err := syscall.Kill(-pid, 0); err != nil {
+				return
+			}
+		} else {
+			if err := proc.Signal(syscall.Signal(0)); err != nil {
+				return
+			}
 		}
 		time.Sleep(100 * time.Millisecond)
 	}

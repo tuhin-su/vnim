@@ -22,18 +22,18 @@ type Config struct {
 }
 
 type Object struct {
-	Type       string   `yaml:"type"`
-	Name       string   `yaml:"name"`
-	Owner      string   `yaml:"owner,omitempty"`
-	Master     string   `yaml:"master,omitempty"`
-	Peer       string   `yaml:"peer,omitempty"`
-	Parent     string   `yaml:"parent,omitempty"`
-	VlanID     int      `yaml:"vlan_id,omitempty"`
-	VxlanID    int      `yaml:"vxlan_id,omitempty"`
-	Group      string   `yaml:"group,omitempty"`
-	Port       int      `yaml:"port,omitempty"`
-	Interfaces []string `yaml:"interfaces,omitempty"`
-	Mode       string   `yaml:"mode,omitempty"`
+	Type         string   `yaml:"type"`
+	Name         string   `yaml:"name"`
+	Owner        string   `yaml:"owner,omitempty"`
+	Master       string   `yaml:"master,omitempty"`
+	Peer         string   `yaml:"peer,omitempty"`
+	Parent       string   `yaml:"parent,omitempty"`
+	VlanID       int      `yaml:"vlan_id,omitempty"`
+	VxlanID      int      `yaml:"vxlan_id,omitempty"`
+	Group        string   `yaml:"group,omitempty"`
+	Port         int      `yaml:"port,omitempty"`
+	Interfaces   []string `yaml:"interfaces,omitempty"`
+	Mode         string   `yaml:"mode,omitempty"`
 	Namespace    string   `yaml:"namespace,omitempty"`
 	Interface    string   `yaml:"interface,omitempty"`
 	Address      string   `yaml:"address,omitempty"`
@@ -44,16 +44,16 @@ type Object struct {
 }
 
 type Service struct {
-	Type           string   `yaml:"type"`
-	Interface      string   `yaml:"interface"`
-	Subnet         string   `yaml:"subnet,omitempty"`
-	RangeStart     string   `yaml:"range_start,omitempty"`
-	RangeEnd       string   `yaml:"range_end,omitempty"`
-	Router         string   `yaml:"router,omitempty"`
-	DNS            string   `yaml:"dns,omitempty"`
-	Port           int      `yaml:"port,omitempty"`
-	Root           string   `yaml:"root,omitempty"`
-	Hosts          []Host   `yaml:"hosts,omitempty"`
+	Type           string        `yaml:"type"`
+	Interface      string        `yaml:"interface"`
+	Subnet         string        `yaml:"subnet,omitempty"`
+	RangeStart     string        `yaml:"range_start,omitempty"`
+	RangeEnd       string        `yaml:"range_end,omitempty"`
+	Router         string        `yaml:"router,omitempty"`
+	DNS            string        `yaml:"dns,omitempty"`
+	Port           int           `yaml:"port,omitempty"`
+	Root           string        `yaml:"root,omitempty"`
+	Hosts          []Host        `yaml:"hosts,omitempty"`
 	DhcpNextServer string        `yaml:"dhcp_next_server,omitempty"`
 	DhcpBootfile   string        `yaml:"dhcp_bootfile,omitempty"`
 	StaticLeases   []StaticLease `yaml:"static_leases,omitempty"`

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"text/template"
 	"time"
 
@@ -213,6 +214,10 @@ func (sm *ServiceManager) startDnsmasq(idx int, svc config.Service, ns string) (
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
+
 	if err := cmd.Start(); err != nil {
 		logFile.Close()
 		return 0, fmt.Errorf("failed to start dnsmasq: %w", err)
@@ -269,6 +274,10 @@ func (sm *ServiceManager) startHTTP(idx int, svc config.Service, ns string) (int
 
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
+
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
 
 	if err := cmd.Start(); err != nil {
 		logFile.Close()
@@ -431,6 +440,10 @@ func runPluginCmd(svcMode string, owner string, binary string, args []string, lo
 			return 0, err
 		}
 		return 0, nil
+	}
+
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
 	}
 
 	if err := cmd.Start(); err != nil {

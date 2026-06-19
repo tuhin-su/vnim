@@ -13,11 +13,11 @@ import (
 const StateDir = "/var/run/vnim/plans"
 
 type PlanState struct {
-	Name      string           `json:"name"`
-	YAMLPath  string           `json:"yaml_path"`
-	CreatedAt time.Time        `json:"created_at"`
-	Objects   []config.Object  `json:"objects"`
-	Services  []ActiveService  `json:"services"`
+	Name      string          `json:"name"`
+	YAMLPath  string          `json:"yaml_path"`
+	CreatedAt time.Time       `json:"created_at"`
+	Objects   []config.Object `json:"objects"`
+	Services  []ActiveService `json:"services"`
 }
 
 type ActiveService struct {

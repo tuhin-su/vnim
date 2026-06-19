@@ -143,4 +143,3 @@ services:
 		t.Errorf("expected 2 validation errors, got %d: %v", len(errs), errs)
 	}
 }
-
