@@ -1,0 +1,98 @@
+.TH VNIM 1 "2026-06-20" "vnim dev" "Virtual Network Interface Manager Manual"
+.SH NAME
+vnim \- Virtual Network Interface Manager
+.SH SYNOPSIS
+.B vnim
+.I subcommand
+.I target
+[args...]
+.SH DESCRIPTION
+.B vnim
+is a professional Linux network orchestration tool for defining, spinning up, and managing complex virtual network topologies inside isolated network namespaces via simple YAML configs.
+.SH SUBCOMMANDS
+.TP
+.B up <lab.yaml>
+Create and start the network topology defined in the YAML configuration. It creates namespaces, interfaces, routing, NAT, and provisions services and plugin hooks.
+.TP
+.B down <lab.yaml|plan_name>
+Destroy the network topology. It stops all services and plugin hooks (executing custom cleanup scripts), removes interfaces and namespaces, and deletes state files.
+.TP
+.B validate <lab.yaml>
+Validate the YAML configuration file against structural and network constraints.
+.TP
+.B dry-run <lab.yaml>
+Show the sequence of shell commands (like ip netns, ip link, iptables) that would be executed to build the topology.
+.TP
+.B tree <lab.yaml>
+Render a visual ASCII representation of the network topology hierarchy and associated services.
+.TP
+.B ps
+List all active network topologies, their start times, YAML paths, and running services.
+.TP
+.B exec <namespace> <command> [args...]
+Execute a command inside the context of a virtual network namespace.
+.TP
+.B shell <namespace>
+Drop into an interactive shell inside a virtual network namespace.
+.TP
+.B version
+Show version information.
+.SH CONFIGURATION FILE
+A configuration YAML consists of two root keys:
+.I objects
+and
+.I services
+.SS Objects
+Defines virtual network interfaces, namespaces, and addresses. Supported types:
+.B namespace, bridge, tap, tun, veth, vlan, vxlan, dummy, bond, address, route, nat.
+.SS Services
+Defines temporary infrastructure services. Supported types:
+.B dhcp, dns, tftp, pxe, http, plugin.
+.SH PLUGINS
+Plugins allow running custom VM managers or container environments attached to interfaces.
+.TP
+.B mode
+Either \fBsu-exec\fR (runs as root, default) or \fBexec\fR (runs as the original non-root user to preserve environment variables, GUI sessions, and access permissions).
+.TP
+.B script
+Inline multi-line shell script to run when starting up the service. Automatically prepended with shebang if not present.
+.TP
+.B cleanup_script
+Inline script to run when tearing down the service during \fBdown\fR.
+.TP
+.B path / args
+Alternative to inline scripts; specifies path to an executable file and its arguments.
+.SS Placeholders
+All plugin command fields support Go-style dynamic templating:
+.IP \(bu 2
+.B {{.Interface}}
+\- Target interface name.
+.IP \(bu 2
+.B {{.Namespace}}
+\- Target interface network namespace.
+.IP \(bu 2
+.B {{.Mac}}
+\- MAC address of the interface.
+.IP \(bu 2
+.B {{.IP}}
+\- CIDR formatted IP address (e.g. 192.168.1.1/24).
+.IP \(bu 2
+.B {{.IPNoMask}}
+\- IP address without subnet mask.
+.IP \(bu 2
+.B {{.PlanName}}
+\- Name of the active topology plan.
+.IP \(bu 2
+.B {{.StateDir}}
+\- Location of the plan's state database directory.
+.IP \(bu 2
+.B {{.Owner}}
+\- Original non-root user running the command.
+.SH FILES
+.TP
+.I /var/run/vnim/plans/
+Directory containing active plan states and plugin log/script outputs.
+.SH AUTHOR
+Created by tuhin-su.
+.SH LICENSE
+Distributed under the permissive MIT License.

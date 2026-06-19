@@ -25,12 +25,22 @@ build-all:
 
 install: build
 	@echo "Installing $(BINARY_NAME) to $(INSTALL_PATH)..."
+	sudo install -d $(INSTALL_PATH)
 	sudo install -m 0755 $(BINARY_PATH) $(INSTALL_PATH)/$(BINARY_NAME)
+	@echo "Installing man page..."
+	sudo install -d /usr/local/share/man/man1
+	sudo install -m 0644 docs/vnim.1 /usr/local/share/man/man1/vnim.1
+	@echo "Updating man database..."
+	sudo mandb -q || true
 	@echo "$(BINARY_NAME) successfully installed!"
 
 uninstall:
 	@echo "Uninstalling $(BINARY_NAME) from $(INSTALL_PATH)..."
 	sudo rm -f $(INSTALL_PATH)/$(BINARY_NAME)
+	@echo "Uninstalling man page..."
+	sudo rm -f /usr/local/share/man/man1/vnim.1
+	@echo "Updating man database..."
+	sudo mandb -q || true
 	@echo "$(BINARY_NAME) successfully uninstalled!"
 
 fetch:
