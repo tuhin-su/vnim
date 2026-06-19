@@ -17,6 +17,9 @@ import (
 	"github.com/tuhin-su/vnim/pkg/tree"
 )
 
+// Version is the current version of the application, set dynamically at build time.
+var Version = "dev"
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -24,6 +27,11 @@ func main() {
 	}
 
 	subCmd := os.Args[1]
+
+	if subCmd == "-v" || subCmd == "--version" || subCmd == "version" {
+		fmt.Printf("vnim version %s\n", Version)
+		os.Exit(0)
+	}
 
 	// Built-in HTTP server runner (used for background HTTP services)
 	if subCmd == "run-http" {
@@ -150,6 +158,7 @@ func printUsage() {
 	fmt.Println("  vnim ps                     List all active network topologies")
 	fmt.Println("  vnim exec <ns> <cmd>...     Run command inside namespace context")
 	fmt.Println("  vnim shell <ns>             Open interactive shell inside namespace")
+	fmt.Println("  vnim version                Show version information")
 }
 
 func isRoot() bool {

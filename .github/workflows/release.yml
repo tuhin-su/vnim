@@ -1,0 +1,61 @@
+name: CI/CD Release
+
+on:
+  push:
+    branches: [ "**" ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.4'
+          cache: true
+
+      - name: Run Unit Tests
+        run: go test -v ./...
+
+  release:
+    name: Build & Publish Release
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.4'
+          cache: true
+
+      - name: Build Optimized Binaries
+        run: |
+          VERSION=${{ github.ref_name }} make build-all
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/vnim-linux-amd64
+            build/vnim-linux-arm64
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
