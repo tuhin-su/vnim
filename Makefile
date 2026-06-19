@@ -49,7 +49,13 @@ fetch:
 
 update: fetch build
 	@echo "Updating installed $(BINARY_NAME) in $(INSTALL_PATH)..."
+	sudo install -d $(INSTALL_PATH)
 	sudo install -m 0755 $(BINARY_PATH) $(INSTALL_PATH)/$(BINARY_NAME)
+	@echo "Updating man page..."
+	sudo install -d /usr/local/share/man/man1
+	sudo install -m 0644 docs/vnim.1 /usr/local/share/man/man1/vnim.1
+	@echo "Updating man database..."
+	sudo mandb -q || true
 	@echo "$(BINARY_NAME) successfully updated!"
 
 clean:
